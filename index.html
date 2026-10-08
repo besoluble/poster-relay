@@ -296,7 +296,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     return 'o';
   }
   const verdict = () => verdictDoc && verdictDoc.winner ? verdictDoc : null;
-  const judgingElsewhere = () => !!(verdictDoc && !verdictDoc.winner && verdictDoc.judgingAt && Date.now() - verdictDoc.judgingAt < (window.PRL_STATIC ? 300000 : 150000));
+  const judgingElsewhere = () => !!(verdictDoc && !verdictDoc.winner && verdictDoc.judgingAt && now() - verdictDoc.judgingAt < (window.PRL_STATIC ? 300000 : 150000));
   /* 점수 = 규칙 준수 30% + AI 평가 70%. 규칙 준수는 받은 카드 중 지킨 비율, AI 평가는 카드와 무관하게 본 포스터 점수. */
   function scoreOf(t){
     const side = (verdict() || {})[t ? 'B' : 'A'] || {}, fin = cardsAt(room.rounds - 1)[t];
@@ -313,7 +313,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
 
   function clockNow(){
     if (room.status !== 'playing') return {phase:room.status === 'teams' ? 'teams' : 'lobby'};
-    const t = Date.now() - room.startAt;
+    const t = now() - room.startAt;
     if (t < 0) return {phase:'count', rem:-t};
     const r = Math.floor(t / ROUND);
     if (r >= room.rounds) return {phase:'done'};
@@ -346,7 +346,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
   /* 깃허브 페이지판: Claude 저장소 대신 공개 메시지 중계 서버에 '남겨 두는 메시지'로 상태를 둔다. 문서 하나가 토픽 하나. */
   const ST = window.PRL_STATIC || null;
   function mqttDb(url, ns){
-    const cache = new Map(), docL = new Map(), colL = new Map(), cid = 'prl_' + Math.random().toString(36).slice(2, 12);
+    const cache = new Map(), docL = new Map(), colL = new Map(), evL = new Map(), cid = 'prl_' + Math.random().toString(36).slice(2, 12);
     let synced = false, waiters = [];
     const whenSynced = f => { if (synced) f(); else waiters.push(f); };
     const setSynced = () => { if (synced) return; synced = true; waiters.splice(0).forEach(f => f()); };
@@ -373,6 +373,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     client.on('message', (topic, payload) => {
       const p = topic.slice(ns.length + 1);
       if (p.startsWith('~sync/')) { if (p === '~sync/' + cid) setSynced(); return; }
+      if (p.startsWith('~t/')) { try { const m = JSON.parse(payload.toString()); (evL.get(p.slice(3)) || []).forEach(f => f(m)); } catch (e) {} return; }
       const txt = payload.toString();
       if (!txt) cache.delete(p);
       else { try { cache.set(p, JSON.parse(txt)); } catch (e) { return; } }
@@ -397,12 +398,49 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     const collection = c => ({path:c, doc:id => doc(c + '/' + id),
       get:() => new Promise(res => whenSynced(() => res(snapCol(c)))),
       onSnapshot:f => sub(colL, c, f, () => snapCol(c))});
-    return {doc, collection, ready};
+    const emit = (topic, m) => { try { client.publish(ns + '/~t/' + topic, JSON.stringify(m), {qos:0}); } catch (e) {} };
+    const on = (topic, f) => { if (!evL.has(topic)) evL.set(topic, []); evL.get(topic).push(f); };
+    return {doc, collection, ready, emit, on};
   }
+  /* 시계 맞춤: 폰마다 시계가 조금씩 달라도 같은 시간이 흐르도록, 팀을 나눈 사람의 시계를 기준으로 삼는다.
+     기준 폰에 '지금 몇 시?'를 물어 왕복 시간의 절반을 빼고 차이를 구한다(여러 번 재서 왕복이 가장 짧았던 값을 쓴다). */
+  let tOff = 0, tSynced = false, tBest = Infinity, tGood = 0, tPend = null, tLast = 0, tMiss = 0;
+  const now = () => Date.now() + tOff;
+  const isRef = () => !!(room.gameId && room.host === me);
+  function timeReset(){
+    if (!ST) return;
+    tPend = null; tLast = 0; tMiss = 0; tGood = 0; tBest = Infinity;
+    if (isRef()) { tOff = 0; tSynced = true; } else tSynced = false;
+  }
+  function timeTick(){
+    if (!ST || !db || !room.gameId || isRef()) return;
+    const t = Date.now(), gap = tGood < 5 ? 600 : 15000;
+    if (t - tLast < gap) return;
+    if (tPend) tMiss++;
+    tLast = t;
+    tPend = {n:Math.random().toString(36).slice(2, 8), t0:t};
+    db.emit('req', {id:me, n:tPend.n, any:tMiss >= 4});
+  }
+  function timeWire(){
+    db.on('req', m => {
+      if (!m || m.id === me || !room.gameId) return;
+      if (isRef() || (m.any && tSynced && Math.random() < .5)) db.emit('res', {id:m.id, n:m.n, h:Date.now() + tOff});
+    });
+    db.on('res', m => {
+      if (!m || m.id !== me || !tPend || m.n !== tPend.n) return;
+      const t1 = Date.now(), rtt = t1 - tPend.t0;
+      tPend = null; tMiss = 0;
+      if (rtt > 4000) return;
+      if (!tSynced || rtt <= tBest) { tOff = m.h - (t1 + (t1 - rtt)) / 2; tBest = rtt; }
+      tSynced = true; tGood++;
+      sync();
+    });
+  }
+  window.__prl = () => ({tOff:Math.round(tOff), tSynced, tBest, tGood, ref:isRef()});
   async function init(){
     let user = null;
     if (ST) {
-      try { db = mqttDb(ST.url, ST.ns); setTimeout(() => { if (boot === 'loading') { slow = true; sync(); } }, 10000); await db.ready; } catch (e) { db = null; }
+      try { db = mqttDb(ST.url, ST.ns); timeWire(); setTimeout(() => { if (boot === 'loading') { slow = true; sync(); } }, 10000); await db.ready; } catch (e) { db = null; }
     } else {
       try { if (window.claude && window.claude.use) [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]); } catch (e) {}
     }
@@ -430,7 +468,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     roomSeen = true;
     room = d ? clone(d) : {status:'lobby', gen:0, rounds:6};
     if (!room.rounds) room.rounds = 6;
-    if ((room.gameId || null) !== subGid) subGame(room.gameId || null);
+    if ((room.gameId || null) !== subGid) { subGame(room.gameId || null); timeReset(); }
     if (myTeam() >= 0) wantIn = true;
     if (room.status === 'lobby' && wantIn && myName && rejoinGen !== gen() && !joined()) {
       rejoinGen = gen();
@@ -585,14 +623,14 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     const gid = Date.now().toString(36) + Math.random().toString(36).slice(2, 6), init = initialPoster();
     try {
       await Promise.all([0, 1].map(t => db.doc(`games/${gid}/posters/${t}`).set({P:init, hist:[init]})));
-      await roomRef.set({status:'teams', gen:gen(), rounds:room.rounds || 6, gameId:gid, seed:Math.floor(Math.random() * 1e9), teams:[ids.slice(0, half), ids.slice(half)], names, bots:ps.filter(p => p.bot).map(p => p.id)});
+      await roomRef.set({status:'teams', gen:gen(), rounds:room.rounds || 6, gameId:gid, seed:Math.floor(Math.random() * 1e9), teams:[ids.slice(0, half), ids.slice(half)], names, bots:ps.filter(p => p.bot).map(p => p.id), host:me});
     } catch (e) { netNote = '팀을 나누지 못했습니다. 다시 눌러 주세요.'; }
     busy = false; sync();
   }
   async function startGame(){
     if (room.status !== 'teams' || busy) return;
     busy = true;
-    try { await roomRef.set(Object.assign({}, room, {status:'playing', startAt:Date.now() + LEAD})); } catch (e) {}
+    try { await roomRef.set(Object.assign({}, room, {status:'playing', startAt:now() + LEAD})); } catch (e) {}
     busy = false;
   }
   async function newGame(){
@@ -776,6 +814,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
         <h1 class="huge">${t >= 0 ? `${mk(t)}${tName(t)}<br>${seat}번` : '관전'}</h1>
         <p>${t >= 0 ? `${esc(nameOf(me))}님의 자리입니다. 모두 자기 팀을 확인하면 시작하세요.` : '이번 판은 지켜봅니다.'}</p>
         <div class="grow">${rosterOf(0)}${rosterOf(1)}</div>
+        ${ST ? `<p class="eyebrow center">${tSynced ? '시계를 맞췄습니다. 모두에게 같은 시간이 흐릅니다.' : '시계를 맞추는 중입니다.'}</p>` : ''}
         ${netNote ? `<p role="status">${esc(netNote)}</p>` : ''}
         <div class="foot"><button type="button" class="cta" data-act="go">게임 시작</button>
         <div class="quiet-row"><button type="button" class="quiet" data-act="teams">팀 다시 나누기</button><button type="button" class="quiet" data-act="new-yes">대기실로</button></div></div>`;
@@ -1018,6 +1057,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     sync();
     paintClock(c);
     if (boot !== 'ready') return;
+    timeTick();
     try { selfTest(c); } catch (e) { if (st && !st.done.err) { st.done.err = 1; stLog('오류: ' + (e && e.message)); } }
     pollN++;
     if ((c.phase === 'lobby' || c.phase === 'teams') && pollN % 30 === 0) refreshLobby();
@@ -1176,7 +1216,7 @@ ${withImages ? '첨부한 이미지 중 첫 번째가 A팀, 두 번째가 B팀 �
     if (ST) {
       if (judgingElsewhere()) return;
       judgeNote = '';
-      try { await db.doc(`games/${subGid}/meta/verdict`).set({judgingAt:Date.now()}); } catch (e) { judgeNote = '심사 요청을 보내지 못했습니다. 다시 눌러 주세요.'; }
+      try { await db.doc(`games/${subGid}/meta/verdict`).set({judgingAt:now()}); } catch (e) { judgeNote = '심사 요청을 보내지 못했습니다. 다시 눌러 주세요.'; }
       sync();
       return;
     }
