@@ -1,4 +1,4 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><style>html{color-scheme:light}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style><script>window.PRL_STATIC={"url": "wss://broker.emqx.io:8084/mqtt", "ns": "prl/v1/nat-sahxkz96modr", "build": 1791463444};</script><script src="mqtt.min.js"></script></head><body><title>15초 포스터 릴레이</title>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><style>html{color-scheme:light}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style><script>window.PRL_STATIC={"url": "wss://broker.emqx.io:8084/mqtt", "ns": "prl/v1/nat-sahxkz96modr", "build": 1791464243};</script><script src="mqtt.min.js"></script></head><body><title>30초 포스터 릴레이</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Batang:wght@400;700&family=Nanum+Pen+Script&display=swap">
 <style>
 @font-face{font-family:'Pretendard Variable';font-weight:45 920;font-style:normal;font-display:swap;src:url("PretendardVariable.woff2") format("woff2-variations"),url("PretendardVariable.woff2") format("woff2")}
@@ -179,11 +179,11 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
 </style>
 
 <div class="app" id="app">
-  <div class="screen" id="screen"><p class="eyebrow">Not a Tree</p><h1 class="title">15초 포스터 릴레이</h1><p>연결하는 중입니다.</p></div>
+  <div class="screen" id="screen"><p class="eyebrow">Not a Tree</p><h1 class="title">30초 포스터 릴레이</h1><p>연결하는 중입니다.</p></div>
   <div class="play" id="play" hidden>
     <div class="top">
       <span class="who" id="who"></span>
-      <span class="clock" aria-label="남은 시간(초)">15</span>
+      <span class="clock" aria-label="남은 시간(초)">30</span>
       <span id="quitW"></span>
     </div>
     <div class="prog"><i></i></div>
@@ -247,7 +247,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     ['수평 수직', '모든 요소는 수평이나 수직으로만 놓는다.', '신조형주의 · 몬드리안 1920'],
     ['대각선', '문구 하나 이상을 비스듬히 기울인다.', '요소주의 · 판 두스부르흐 1924'],
   ];
-  const INTRO = 6000, PLAY = 15000, ROUND = INTRO + PLAY, LEAD = 4000, MAX_SHAPES = 6;
+  const INTRO = 6000, PLAY = 30000, ROUND = INTRO + PLAY, LEAD = 4000, MAX_SHAPES = 6;
   const LIM = {text:[2, 40], shape:[4, 140]};
   const ROLE = {w:'작가', c:'카드 담당', o:'관찰'};
 
@@ -612,7 +612,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     botLast = {gid, r, teams:[0, 1].filter(t => isBot(writerOf(t, r)))};
     [0, 1].forEach(t => {
       if (!isBot(writerOf(t, r))) return;
-      [3000, 7000, 11000].forEach((d, n) => botTimers.push(setTimeout(() => {
+      [4000, 12000, 20000, 26000].forEach((d, n) => botTimers.push(setTimeout(() => {
         if (gid !== subGid || !posters[t]) return;
         const P = clone(posters[t].P), e = P.els[Math.floor(Math.random() * P.els.length)], lim = LIM[e.kind], k = Math.floor(Math.random() * 4);
         if (k === 0) { e.x = 10 + Math.random() * 80; e.y = 10 + Math.random() * 80; }
@@ -837,7 +837,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
   }
   const quitArmed = () => Date.now() - quitAt < 3500;
   const quitBtn = () => `<button type="button" class="skip" data-act="quit">${quitArmed() ? '한 번 더 누르면 종료' : '그만하기'}</button>`;
-  const topBar = (left) => `<div class="top"><span class="who">${left}</span><span class="clock" aria-label="남은 시간(초)">15</span>${quitBtn()}</div><div class="prog"><i></i></div>`;
+  const topBar = (left) => `<div class="top"><span class="who">${left}</span><span class="clock" aria-label="남은 시간(초)">30</span>${quitBtn()}</div><div class="prog"><i></i></div>`;
   const cardList = (cs, newest) => cs.length
     ? `<ol class="list">${cs.map((i, n) => `<li><span><b>${esc(CARDS[i][0])}${newest && n === cs.length - 1 ? '<em>새 카드</em>' : ''}</b>${esc(CARDS[i][1])}<small class="src">${esc(CARDS[i][2])}</small></span></li>`).join('')}</ol>`
     : `<hr class="rule"><p>받은 카드가 아직 없습니다.</p>`;
@@ -847,8 +847,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
   const rosterOf = t => `<p class="eyebrow">${mk(t)}${tName(t)} · 번호는 작가가 되는 순서</p><ol class="list">${room.teams[t].map(id => `<li><span>${esc(nameOf(id))}${id === me ? ' (나)' : ''}</span></li>`).join('')}</ol>`;
 
   function build(v, c){
-    if (v === 'loading') return `<p class="eyebrow">Not a Tree</p><h1 class="title">15초 포스터 릴레이</h1><p>${slow ? '연결이 오래 걸리고 있습니다. 계속 시도하는 중이니 인터넷 연결을 확인해 주세요.' : '연결하는 중입니다.'}</p>`;
-    if (v === 'none') return `<p class="eyebrow">Not a Tree</p><h1 class="title">15초 포스터 릴레이</h1><hr class="rule"><p>${ST ? '게임 서버에 연결하지 못했습니다. 인터넷 연결을 확인하고 페이지를 새로 열어 주세요.' : '이 화면에서는 함께 들어올 수 없습니다. Claude에 로그인한 뒤, 공유받은 링크를 claude.ai에서 다시 열어 주세요.'}</p>`;
+    if (v === 'loading') return `<p class="eyebrow">Not a Tree</p><h1 class="title">30초 포스터 릴레이</h1><p>${slow ? '연결이 오래 걸리고 있습니다. 계속 시도하는 중이니 인터넷 연결을 확인해 주세요.' : '연결하는 중입니다.'}</p>`;
+    if (v === 'none') return `<p class="eyebrow">Not a Tree</p><h1 class="title">30초 포스터 릴레이</h1><hr class="rule"><p>${ST ? '게임 서버에 연결하지 못했습니다. 인터넷 연결을 확인하고 페이지를 새로 열어 주세요.' : '이 화면에서는 함께 들어올 수 없습니다. Claude에 로그인한 뒤, 공유받은 링크를 claude.ai에서 다시 열어 주세요.'}</p>`;
     const t = myTeam(), R = room.rounds;
     if (v === 'teams') {
       const seat = t >= 0 ? room.teams[t].indexOf(me) + 1 : 0;
@@ -862,11 +862,11 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
         <div class="foot"><button type="button" class="cta" data-act="go">게임 시작</button>
         <div class="quiet-row"><button type="button" class="quiet" data-act="teams">팀 다시 나누기</button><button type="button" class="quiet" data-act="new-yes">대기실로</button></div></div>`;
     }
-    if (v === 'count') return `<p class="eyebrow">${mk(t)}${tName(t)} · 곧 시작합니다</p><p class="giant" id="cd">3</p><p class="eyebrow center">전체 ${no(R)}라운드 · 한 라운드 15초</p>`;
+    if (v === 'count') return `<p class="eyebrow">${mk(t)}${tName(t)} · 곧 시작합니다</p><p class="giant" id="cd">3</p><p class="eyebrow center">전체 ${no(R)}라운드 · 한 라운드 30초</p>`;
     if (v === 'intro') {
       const role = roleOf(t, c.r, me), last = c.r >= R - 1, cs = cardsAt(c.r)[t];
       const next = !last && writerOf(t, c.r + 1) === me;
-      const say = role === 'w' ? '15초 동안 우리 팀 포스터를 고칩니다. 아래 카드를 모두 지켜야 합니다.'
+      const say = role === 'w' ? '30초 동안 우리 팀 포스터를 고칩니다. 아래 카드를 모두 지켜야 합니다.'
         : role === 'c' && !last ? `${tName(1 - t)}에게 보낼 제약 카드를 한 장 고릅니다.`
         : `우리 팀 작가 ${esc(nameOf(writerOf(t, c.r)))}님을 지켜봅니다.${next ? ' 다음 라운드의 작가입니다.' : ''}`;
       return `
@@ -883,7 +883,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
       return `
         ${topBar(`${mk(t)}${tName(t)} · ${no(c.r + 1)}/${no(R)}`)}
         ${hudHtml(c.r)}
-        <p class="eyebrow">15초 안에 ${tName(o)}에게 보낼 카드를 한 장 고르세요</p>
+        <p class="eyebrow">30초 안에 ${tName(o)}에게 보낼 카드를 한 장 고르세요</p>
         <div class="target"><div class="tw" data-live="${o}"></div><div class="tx"><b>지금 ${tName(o)} 포스터</b><span>${oc.length ? '받은 카드: ' + esc(oc.map(i => CARDS[i][0]).join(', ')) : '아직 받은 카드가 없습니다'}</span></div></div>
         <div class="grow deal">
           ${offer.map(i => `<button type="button" class="pc" data-act="pick" data-v="${i}" aria-pressed="${mine === i}"><span class="pc-in"><span class="pc-f"><small>${esc(CARDS[i][2])}</small><b>${esc(CARDS[i][0])}</b><span>${esc(CARDS[i][1])}</span></span><span class="pc-b"></span></span></button>`).join('')}
@@ -985,13 +985,13 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
       screen.innerHTML = `
         <div class="grow">
           <p class="eyebrow">Not a Tree · 3 대 3 · 각자 폰으로</p>
-          <h1 class="title">15초 포스터 릴레이</h1>
+          <h1 class="title">30초 포스터 릴레이</h1>
           ${inn ? '' : `<form class="join" id="joinForm"><input type="text" id="name-input" maxlength="8" placeholder="이름" autocomplete="off" enterkeyhint="go" aria-label="이름"><button type="submit" class="cta">입장</button></form>`}
           <p id="note" role="status" hidden></p>
           <div id="roster"></div>
           <p class="eyebrow">하는 법</p>
           <ol class="list">
-            <li><span>라운드마다 팀에서 한 명이 작가가 되어 15초 동안 포스터를 고칩니다. 6라운드면 한 사람이 두 번씩 작가가 됩니다.</span></li>
+            <li><span>라운드마다 팀에서 한 명이 작가가 되어 30초 동안 포스터를 고칩니다. 6라운드면 한 사람이 두 번씩 작가가 됩니다.</span></li>
             <li><span>그동안 한 명은 상대 팀에게 보낼 디자인 원칙 카드를 고르고, 한 명은 지켜봅니다. 카드는 끝까지 쌓이고 전부 지켜야 합니다.</span></li>
             <li><span>지켜보던 사람이 다음 작가가 됩니다.</span></li>
             <li><span>점수는 규칙 준수 30%, 아름다움 70%입니다. 아름다움은 워홀, 안상수, 폴 랜드의 눈을 모티브로 한 AI 심사위원 셋이 카드를 모르는 채로 매깁니다.</span></li>
@@ -1169,9 +1169,9 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     if (c.phase === 'play') {
       const role = roleOf(t, c.r, me), r = 'r' + c.r;
       once(r, () => stLog(`라운드 ${c.r + 1} 역할=${ROLE[role]} 화면=${lastView} 받은카드=${cardsAt(c.r)[t].length}`));
-      if (W) { [[12000, 'a'], [8000, 'b'], [4000, 'c']].forEach(x => { if (c.rem < x[0]) once(r + x[1], stEdit); }); }
-      if (lastView === 'card' && c.rem < 11000) once(r + 'p', () => { const o = deal(c.r).offers[t]; pick(o[1]); stLog(`라운드 ${c.r + 1} 카드 고름: ${CARDS[o[1]][0]}`); });
-      if (lastView === 'watch' && c.rem < 7000) once(r + 'w', () => stLog(`라운드 ${c.r + 1} 관찰: 우리 팀 포스터 수신=${!!posters[t]} 최근수신=${Math.round((Date.now() - snapAt[t]) / 1000)}초 전`));
+      if (W) { [[25000, 'a'], [16000, 'b'], [8000, 'c']].forEach(x => { if (c.rem < x[0]) once(r + x[1], stEdit); }); }
+      if (lastView === 'card' && c.rem < 22000) once(r + 'p', () => { const o = deal(c.r).offers[t]; pick(o[1]); stLog(`라운드 ${c.r + 1} 카드 고름: ${CARDS[o[1]][0]}`); });
+      if (lastView === 'watch' && c.rem < 12000) once(r + 'w', () => stLog(`라운드 ${c.r + 1} 관찰: 우리 팀 포스터 수신=${!!posters[t]} 최근수신=${Math.round((Date.now() - snapAt[t]) / 1000)}초 전`));
     }
     if (c.phase === 'done') {
       once('d0', () => { st.doneAt = Date.now(); });
@@ -1246,7 +1246,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
   });
   function judgePrompt(withImages, fin){
     const lines = t => fin[t].length ? fin[t].map((i, n) => `${n + 1}. ${CARDS[i][0]}: ${CARDS[i][1]}`).join('\n') : '(받은 카드 없음)';
-    return `당신은 디자인 스터디 모임 'Not a Tree'의 1기 작업물 전시 포스터를 고르는 심사위원입니다. 두 팀이 같은 재료로 포스터를 만들었습니다. 각 팀은 세 사람이 15초씩 번갈아 앞사람의 포스터를 고쳤고, 상대 팀이 보낸 디자인 원칙 카드를 끝까지 모두 지켜야 했습니다. 카드끼리 서로 모순될 수 있습니다.
+    return `당신은 디자인 스터디 모임 'Not a Tree'의 1기 작업물 전시 포스터를 고르는 심사위원입니다. 두 팀이 같은 재료로 포스터를 만들었습니다. 각 팀은 세 사람이 30초씩 번갈아 앞사람의 포스터를 고쳤고, 상대 팀이 보낸 디자인 원칙 카드를 끝까지 모두 지켜야 했습니다. 카드끼리 서로 모순될 수 있습니다.
 
 포스터에 들어가야 하는 문구:
 ${BRIEF.map(b => `- ${b.label}: ${b.text}`).join('\n')}
