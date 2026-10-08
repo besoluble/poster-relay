@@ -1,4 +1,4 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><style>html{color-scheme:light}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style><script>window.PRL_STATIC={"url": "wss://broker.emqx.io:8084/mqtt", "ns": "prl/v1/nat-sahxkz96modr"};</script><script src="mqtt.min.js"></script></head><body><title>30초 포스터 릴레이</title>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><style>html{color-scheme:light}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style><script>window.PRL_STATIC={"url": "wss://broker.emqx.io:8084/mqtt", "ns": "prl/v1/nat-sahxkz96modr"};</script><script src="mqtt.min.js"></script></head><body><title>15초 포스터 릴레이</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Batang:wght@400;700&family=Nanum+Pen+Script&display=swap">
 <style>
 @font-face{font-family:'Pretendard Variable';font-weight:45 920;font-style:normal;font-display:swap;src:url("PretendardVariable.woff2") format("woff2-variations"),url("PretendardVariable.woff2") format("woff2")}
@@ -176,11 +176,11 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
 </style>
 
 <div class="app" id="app">
-  <div class="screen" id="screen"><p class="eyebrow">Not a Tree</p><h1 class="title">30초 포스터 릴레이</h1><p>연결하는 중입니다.</p></div>
+  <div class="screen" id="screen"><p class="eyebrow">Not a Tree</p><h1 class="title">15초 포스터 릴레이</h1><p>연결하는 중입니다.</p></div>
   <div class="play" id="play" hidden>
     <div class="top">
       <span class="who" id="who"></span>
-      <span class="clock" aria-label="남은 시간(초)">30</span>
+      <span class="clock" aria-label="남은 시간(초)">15</span>
       <span id="quitW"></span>
     </div>
     <div class="prog"><i></i></div>
@@ -244,7 +244,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     ['수평 수직', '모든 요소는 수평이나 수직으로만 놓는다.', '신조형주의 · 몬드리안 1920'],
     ['대각선', '문구 하나 이상을 비스듬히 기울인다.', '요소주의 · 판 두스부르흐 1924'],
   ];
-  const INTRO = 7000, PLAY = 30000, ROUND = INTRO + PLAY, LEAD = 4000, MAX_SHAPES = 6;
+  const INTRO = 6000, PLAY = 15000, ROUND = INTRO + PLAY, LEAD = 4000, MAX_SHAPES = 6;
   const LIM = {text:[2, 40], shape:[4, 140]};
   const ROLE = {w:'작가', c:'카드 담당', o:'관찰'};
 
@@ -269,7 +269,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
   let room = {status:'lobby', gen:0, rounds:6}, players = [], posters = [null, null], picks = {}, verdictDoc = null;
   let gameSubs = [], subGid = null, snapAt = [0, 0];
   let myName = lsGet('prl-name') || '', wantIn = false, rejoinGen = -1, netNote = '', busy = false;
-  let myPick = null, votes = {}, myVote = null;
+  let myPick = null, votes = {}, myVote = null, celebrated = null;
   /* 작가일 때만 쓰는 작업본 */
   let W = null, turnStart = null, writerRound = -1, writerGid = null, wNext = null, wBusy = false, wTimer = null;
   let sel = null, drag = null, pinch = null, toolSel = 's', toolNone = 'bg';
@@ -504,7 +504,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
   }
   function onVerdict(d){
     verdictDoc = d;
-    if (verdict() && !sawVerdict) { sawVerdict = true; if (clockNow().phase === 'done') { fanfare(); confetti(); } }
+    if (verdict() && !sawVerdict) { sawVerdict = true; if (clockNow().phase === 'done') beep(880, .2); }
     sync();
   }
   /* 실시간 전달이 느린 환경에 대비해, 넘어가는 순간마다 한 번씩 직접 읽는다. */
@@ -594,7 +594,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     botLast = {gid, r, teams:[0, 1].filter(t => isBot(writerOf(t, r)))};
     [0, 1].forEach(t => {
       if (!isBot(writerOf(t, r))) return;
-      [4000, 12000, 20000, 27000].forEach((d, n) => botTimers.push(setTimeout(() => {
+      [3000, 7000, 11000].forEach((d, n) => botTimers.push(setTimeout(() => {
         if (gid !== subGid || !posters[t]) return;
         const P = clone(posters[t].P), e = P.els[Math.floor(Math.random() * P.els.length)], lim = LIM[e.kind], k = Math.floor(Math.random() * 4);
         if (k === 0) { e.x = 10 + Math.random() * 80; e.y = 10 + Math.random() * 80; }
@@ -649,6 +649,13 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     try { await db.doc(`games/${subGid}/votes/${me}`).set({v}); } catch (e) {}
   }
   const voteOf = id => id === me && myVote ? myVote : votes[id];
+  function outcome(){
+    if (!verdict() || !room.teams) return null;
+    const ai = winT(), humans = room.teams[0].concat(room.teams[1]).filter(id => !isBot(id));
+    const yes = humans.filter(id => voteOf(id) === 'y').length, no = humans.filter(id => voteOf(id) === 'n').length, left = humans.length - yes - no;
+    const done = humans.length > 0 && left <= 0;
+    return {ai, yes, no, left, done, final:!done ? -1 : no > yes ? 1 - ai : ai, flipped:done && no > yes, tie:done && no === yes};
+  }
   async function pick(card){
     const c = clockNow(), t = myTeam();
     if (c.phase !== 'play' || t < 0 || roleOf(t, c.r, me) !== 'c' || c.rem < 400) return;
@@ -659,7 +666,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     try { await db.doc(`games/${subGid}/picks/${k}`).set({card, by:me}); } catch (e) {}
   }
 
-  /* ---------- 작가의 30초 ---------- */
+  /* ---------- 작가의 한 턴 ---------- */
   function startWriting(r){
     const t = myTeam();
     if (!posters[t]) return false;
@@ -806,7 +813,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
   }
   const quitArmed = () => Date.now() - quitAt < 3500;
   const quitBtn = () => `<button type="button" class="skip" data-act="quit">${quitArmed() ? '한 번 더 누르면 종료' : '그만하기'}</button>`;
-  const topBar = (left) => `<div class="top"><span class="who">${left}</span><span class="clock" aria-label="남은 시간(초)">30</span>${quitBtn()}</div><div class="prog"><i></i></div>`;
+  const topBar = (left) => `<div class="top"><span class="who">${left}</span><span class="clock" aria-label="남은 시간(초)">15</span>${quitBtn()}</div><div class="prog"><i></i></div>`;
   const cardList = (cs, newest) => cs.length
     ? `<ol class="list">${cs.map((i, n) => `<li><span><b>${esc(CARDS[i][0])}${newest && n === cs.length - 1 ? '<em>새 카드</em>' : ''}</b>${esc(CARDS[i][1])}<small class="src">${esc(CARDS[i][2])}</small></span></li>`).join('')}</ol>`
     : `<hr class="rule"><p>받은 카드가 아직 없습니다.</p>`;
@@ -816,8 +823,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
   const rosterOf = t => `<p class="eyebrow">${mk(t)}${tName(t)} · 번호는 작가가 되는 순서</p><ol class="list">${room.teams[t].map(id => `<li><span>${esc(nameOf(id))}${id === me ? ' (나)' : ''}</span></li>`).join('')}</ol>`;
 
   function build(v, c){
-    if (v === 'loading') return `<p class="eyebrow">Not a Tree</p><h1 class="title">30초 포스터 릴레이</h1><p>${slow ? '연결이 오래 걸리고 있습니다. 계속 시도하는 중이니 인터넷 연결을 확인해 주세요.' : '연결하는 중입니다.'}</p>`;
-    if (v === 'none') return `<p class="eyebrow">Not a Tree</p><h1 class="title">30초 포스터 릴레이</h1><hr class="rule"><p>${ST ? '게임 서버에 연결하지 못했습니다. 인터넷 연결을 확인하고 페이지를 새로 열어 주세요.' : '이 화면에서는 함께 들어올 수 없습니다. Claude에 로그인한 뒤, 공유받은 링크를 claude.ai에서 다시 열어 주세요.'}</p>`;
+    if (v === 'loading') return `<p class="eyebrow">Not a Tree</p><h1 class="title">15초 포스터 릴레이</h1><p>${slow ? '연결이 오래 걸리고 있습니다. 계속 시도하는 중이니 인터넷 연결을 확인해 주세요.' : '연결하는 중입니다.'}</p>`;
+    if (v === 'none') return `<p class="eyebrow">Not a Tree</p><h1 class="title">15초 포스터 릴레이</h1><hr class="rule"><p>${ST ? '게임 서버에 연결하지 못했습니다. 인터넷 연결을 확인하고 페이지를 새로 열어 주세요.' : '이 화면에서는 함께 들어올 수 없습니다. Claude에 로그인한 뒤, 공유받은 링크를 claude.ai에서 다시 열어 주세요.'}</p>`;
     const t = myTeam(), R = room.rounds;
     if (v === 'teams') {
       const seat = t >= 0 ? room.teams[t].indexOf(me) + 1 : 0;
@@ -831,11 +838,11 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
         <div class="foot"><button type="button" class="cta" data-act="go">게임 시작</button>
         <div class="quiet-row"><button type="button" class="quiet" data-act="teams">팀 다시 나누기</button><button type="button" class="quiet" data-act="new-yes">대기실로</button></div></div>`;
     }
-    if (v === 'count') return `<p class="eyebrow">${mk(t)}${tName(t)} · 곧 시작합니다</p><p class="giant" id="cd">3</p><p class="eyebrow center">전체 ${no(R)}라운드 · 한 라운드 30초</p>`;
+    if (v === 'count') return `<p class="eyebrow">${mk(t)}${tName(t)} · 곧 시작합니다</p><p class="giant" id="cd">3</p><p class="eyebrow center">전체 ${no(R)}라운드 · 한 라운드 15초</p>`;
     if (v === 'intro') {
       const role = roleOf(t, c.r, me), last = c.r >= R - 1, cs = cardsAt(c.r)[t];
       const next = !last && writerOf(t, c.r + 1) === me;
-      const say = role === 'w' ? '30초 동안 우리 팀 포스터를 고칩니다. 아래 카드를 모두 지켜야 합니다.'
+      const say = role === 'w' ? '15초 동안 우리 팀 포스터를 고칩니다. 아래 카드를 모두 지켜야 합니다.'
         : role === 'c' && !last ? `${tName(1 - t)}에게 보낼 제약 카드를 한 장 고릅니다.`
         : `우리 팀 작가 ${esc(nameOf(writerOf(t, c.r)))}님을 지켜봅니다.${next ? ' 다음 라운드의 작가입니다.' : ''}`;
       return `
@@ -852,7 +859,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
       return `
         ${topBar(`${mk(t)}${tName(t)} · ${no(c.r + 1)}/${no(R)}`)}
         ${hudHtml(c.r)}
-        <p class="eyebrow">30초 안에 ${tName(o)}에게 보낼 카드를 한 장 고르세요</p>
+        <p class="eyebrow">15초 안에 ${tName(o)}에게 보낼 카드를 한 장 고르세요</p>
         <div class="target"><div class="tw" data-live="${o}"></div><div class="tx"><b>지금 ${tName(o)} 포스터</b><span>${oc.length ? '받은 카드: ' + esc(oc.map(i => CARDS[i][0]).join(', ')) : '아직 받은 카드가 없습니다'}</span></div></div>
         <div class="grow deal">
           ${offer.map(i => `<button type="button" class="pc" data-act="pick" data-v="${i}" aria-pressed="${mine === i}"><span class="pc-in"><span class="pc-f"><small>${esc(CARDS[i][2])}</small><b>${esc(CARDS[i][0])}</b><span>${esc(CARDS[i][1])}</span></span><span class="pc-b"></span></span></button>`).join('')}
@@ -875,6 +882,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     /* done */
     const vd = verdict(), w = winT(), wait = judging || judgingElsewhere();
     let ask = '', panel = '';
+    const oc = outcome();
     if (vd) {
       const sw = scoreOf(w), sl = scoreOf(1 - w), W = tName(w), L = tName(1 - w);
       const line = sw.rule < sl.rule ? `${W}은 카드를 덜 지키고 이겼습니다. 지킨 카드는 ${sw.kept}장 대 ${sl.kept}장입니다.`
@@ -886,7 +894,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
       const by = tt => { const m = humans(tt); return m.length ? `${tName(tt)} ${m.filter(id => voteOf(id) === 'y').length}/${m.length}` : ''; };
       ask = `<div class="ask"><p>${line}</p><h2>근데 여러분은 솔직히 동의하시나요?</h2><p class="eyebrow">점수 말고, 눈으로 봤을 때</p>
         <div class="seg"><button type="button" data-act="vote" data-v="y" aria-pressed="${mineV === 'y'}">동의</button><button type="button" data-act="vote" data-v="n" aria-pressed="${mineV === 'n'}">아니, ${L}이 더 낫다</button></div>
-        <p class="eyebrow">${yes + no ? `동의 ${yes}명 · 반대 ${no}명 (동의한 사람: ${[by(0), by(1)].filter(Boolean).join(', ')})` : '아직 아무도 누르지 않았습니다.'}</p></div>`;
+        <p class="eyebrow">${yes + no ? `동의 ${yes}명 · 반대 ${no}명 (동의한 사람: ${[by(0), by(1)].filter(Boolean).join(', ')})` : '아직 아무도 누르지 않았습니다.'}</p>
+        ${oc.done ? '' : `<p class="eyebrow">여기 모인 사람들이 동의해야 승리가 확정됩니다. 과반이 반대하면 뒤집힙니다. 아직 ${oc.left}명이 누르지 않았습니다.</p>`}</div>`;
       if (Array.isArray(vd.panel) && vd.panel.length) panel = `<p class="eyebrow">아름다움 심사 · 세 사람의 눈을 모티브로 한 AI 심사위원</p><ol class="list">${vd.panel.slice(0, 5).map(j => `<li><span><b>${esc(j.name)}의 눈 · A ${clamp(Math.round(+j.a || 0), 0, 100)} / B ${clamp(Math.round(+j.b || 0), 0, 100)}</b>${esc(j.say || '')}</span></li>`).join('')}</ol>`;
     }
     const score = (k, tt) => { const s = vd[k] || {}, sc = scoreOf(tt); return `<div class="score"><h2>${mk(tt)}${tName(tt)}</h2>
@@ -895,7 +904,9 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     const overall = vd && vd.verdict ? `<div class="score"><h2>총평</h2><p>${esc(vd.verdict)}</p></div>` : '';
     return `
       <div class="grow">
-        ${vd ? `<p class="eyebrow">심사 결과 · ${scoreOf(0).total} 대 ${scoreOf(1).total}</p><h1 class="huge">${tName(w)} 승</h1>`
+        ${vd ? `${oc.done
+          ? `<p class="eyebrow">${oc.flipped ? `뒤집힘 · AI 판정은 ${tName(oc.ai)}이었지만 반대 ${oc.no} 대 동의 ${oc.yes}` : oc.tie ? `동의 ${oc.yes} 대 반대 ${oc.no} · 동수라 AI 판정대로` : `확정 · 동의 ${oc.yes} 대 반대 ${oc.no}`}</p><h1 class="huge">${tName(oc.final)} 승</h1>`
+          : `<p class="eyebrow">AI 판정 · ${scoreOf(0).total} 대 ${scoreOf(1).total} · 여러분의 동의를 기다리는 중</p><h1 class="huge">${tName(w)} 승?</h1>`}`
              : `<p class="eyebrow">${no(R)}라운드 끝</p><h1 class="title">두 포스터 완성</h1>`}
         <div class="duo" id="duo"></div>
         ${ask}${panel}
@@ -916,11 +927,11 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     const fin = cardsAt(room.rounds - 1), vd = verdict();
     duo.innerHTML = '';
     [0, 1].forEach(i => {
-      const p = posters[i], win = frame == null && winT() === i, hist = (p && p.hist) || [];
+      const oc = outcome(), p = posters[i], win = frame == null && !!oc && oc.done && oc.final === i, prov = frame == null && !!oc && !oc.done && oc.ai === i, hist = (p && p.hist) || [];
       const fig = document.createElement('figure');
       if (win) fig.className = 'win';
       const cap = document.createElement('figcaption');
-      cap.innerHTML = `${mk(i)}${tName(i)}${win ? '<span class="badge">승</span>' : ''}${frame != null ? `<span>${frame === 0 ? '시작' : Math.min(frame, hist.length - 1) + '라운드 뒤'}</span>` : `<span>${room.teams[i].map(id => esc(nameOf(id))).join(' · ')}</span>`}`;
+      cap.innerHTML = `${mk(i)}${tName(i)}${win ? '<span class="badge">승</span>' : prov ? '<span class="badge">AI 판정</span>' : ''}${frame != null ? `<span>${frame === 0 ? '시작' : Math.min(frame, hist.length - 1) + '라운드 뒤'}</span>` : `<span>${room.teams[i].map(id => esc(nameOf(id))).join(' · ')}</span>`}`;
       fig.appendChild(cap);
       fig.appendChild(posterNode(frame == null ? (p && p.P) : hist[Math.min(frame, hist.length - 1)], false));
       if (fin[i].length && frame == null) {
@@ -948,17 +959,17 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
       screen.innerHTML = `
         <div class="grow">
           <p class="eyebrow">Not a Tree · 3 대 3 · 각자 폰으로</p>
-          <h1 class="title">30초 포스터 릴레이</h1>
+          <h1 class="title">15초 포스터 릴레이</h1>
           ${inn ? '' : `<form class="join" id="joinForm"><input type="text" id="name-input" maxlength="8" placeholder="이름" autocomplete="off" enterkeyhint="go" aria-label="이름"><button type="submit" class="cta">입장</button></form>`}
           <p id="note" role="status" hidden></p>
           <div id="roster"></div>
           <p class="eyebrow">하는 법</p>
           <ol class="list">
-            <li><span>라운드마다 팀에서 한 명이 작가가 되어 30초 동안 포스터를 고칩니다.</span></li>
+            <li><span>라운드마다 팀에서 한 명이 작가가 되어 15초 동안 포스터를 고칩니다. 6라운드면 한 사람이 두 번씩 작가가 됩니다.</span></li>
             <li><span>그동안 한 명은 상대 팀에게 보낼 디자인 원칙 카드를 고르고, 한 명은 지켜봅니다. 카드는 끝까지 쌓이고 전부 지켜야 합니다.</span></li>
             <li><span>지켜보던 사람이 다음 작가가 됩니다.</span></li>
             <li><span>점수는 규칙 준수 30%, 아름다움 70%입니다. 아름다움은 워홀, 안상수, 폴 랜드의 눈을 모티브로 한 AI 심사위원 셋이 카드를 모르는 채로 매깁니다.</span></li>
-            <li><span>원칙을 지킬지, 마음대로 만들지는 팀이 정합니다. 결과가 나오면 다 같이 동의하는지 누릅니다.</span></li>
+            <li><span>원칙을 지킬지, 마음대로 만들지는 팀이 정합니다. AI 판정이 나오면 다 같이 동의하는지 누르고, 과반이 반대하면 승패가 뒤집힙니다.</span></li>
           </ol>
         </div>
         <div class="foot" id="foot"></div>`;
@@ -1058,7 +1069,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
         [120, 260, 400, 540].forEach(d => setTimeout(() => beep(300, .03), d));
         [1000, 1120, 1240].forEach(d => setTimeout(() => beep(900, .05), d));
       }
-      if (v === 'done') renderDuo();
+      if (v === 'done') { renderDuo(); const o = outcome(); if (o && o.done && celebrated !== subGid) { celebrated = subGid; fanfare(); confetti(); } }
       refreshLive();
       paintClock(c);
     }
@@ -1126,9 +1137,9 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     if (c.phase === 'play') {
       const role = roleOf(t, c.r, me), r = 'r' + c.r;
       once(r, () => stLog(`라운드 ${c.r + 1} 역할=${ROLE[role]} 화면=${lastView} 받은카드=${cardsAt(c.r)[t].length}`));
-      if (W) { [[25000, 'a'], [16000, 'b'], [8000, 'c']].forEach(x => { if (c.rem < x[0]) once(r + x[1], stEdit); }); }
-      if (lastView === 'card' && c.rem < 22000) once(r + 'p', () => { const o = deal(c.r).offers[t]; pick(o[1]); stLog(`라운드 ${c.r + 1} 카드 고름: ${CARDS[o[1]][0]}`); });
-      if (lastView === 'watch' && c.rem < 12000) once(r + 'w', () => stLog(`라운드 ${c.r + 1} 관찰: 우리 팀 포스터 수신=${!!posters[t]} 최근수신=${Math.round((Date.now() - snapAt[t]) / 1000)}초 전`));
+      if (W) { [[12000, 'a'], [8000, 'b'], [4000, 'c']].forEach(x => { if (c.rem < x[0]) once(r + x[1], stEdit); }); }
+      if (lastView === 'card' && c.rem < 11000) once(r + 'p', () => { const o = deal(c.r).offers[t]; pick(o[1]); stLog(`라운드 ${c.r + 1} 카드 고름: ${CARDS[o[1]][0]}`); });
+      if (lastView === 'watch' && c.rem < 7000) once(r + 'w', () => stLog(`라운드 ${c.r + 1} 관찰: 우리 팀 포스터 수신=${!!posters[t]} 최근수신=${Math.round((Date.now() - snapAt[t]) / 1000)}초 전`));
     }
     if (c.phase === 'done') {
       once('d0', () => { st.doneAt = Date.now(); });
@@ -1203,7 +1214,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
   });
   function judgePrompt(withImages, fin){
     const lines = t => fin[t].length ? fin[t].map((i, n) => `${n + 1}. ${CARDS[i][0]}: ${CARDS[i][1]}`).join('\n') : '(받은 카드 없음)';
-    return `당신은 디자인 스터디 모임 'Not a Tree'의 1기 작업물 전시 포스터를 고르는 심사위원입니다. 두 팀이 같은 재료로 포스터를 만들었습니다. 각 팀은 세 사람이 30초씩 번갈아 앞사람의 포스터를 고쳤고, 상대 팀이 보낸 디자인 원칙 카드를 끝까지 모두 지켜야 했습니다. 카드끼리 서로 모순될 수 있습니다.
+    return `당신은 디자인 스터디 모임 'Not a Tree'의 1기 작업물 전시 포스터를 고르는 심사위원입니다. 두 팀이 같은 재료로 포스터를 만들었습니다. 각 팀은 세 사람이 15초씩 번갈아 앞사람의 포스터를 고쳤고, 상대 팀이 보낸 디자인 원칙 카드를 끝까지 모두 지켜야 했습니다. 카드끼리 서로 모순될 수 있습니다.
 
 포스터에 들어가야 하는 문구:
 ${BRIEF.map(b => `- ${b.label}: ${b.text}`).join('\n')}
