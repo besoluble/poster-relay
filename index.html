@@ -297,7 +297,19 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
   }
   const verdict = () => verdictDoc && verdictDoc.winner ? verdictDoc : null;
   const judgingElsewhere = () => !!(verdictDoc && !verdictDoc.winner && verdictDoc.judgingAt && Date.now() - verdictDoc.judgingAt < (window.PRL_STATIC ? 300000 : 150000));
-  const winT = () => verdict() ? (verdict().winner === 'B' ? 1 : 0) : -1;
+  /* 점수 = 규칙 준수 30% + AI 평가 70%. 규칙 준수는 받은 카드 중 지킨 비율, AI 평가는 카드와 무관하게 본 포스터 점수. */
+  function scoreOf(t){
+    const side = (verdict() || {})[t ? 'B' : 'A'] || {}, fin = cardsAt(room.rounds - 1)[t];
+    const broken = Array.isArray(side.broken) ? side.broken.map(String) : [];
+    const bad = fin.filter(c => broken.some(b => b.indexOf(CARDS[c][0]) >= 0)).length;
+    const rule = fin.length ? Math.round((fin.length - bad) / fin.length * 100) : 100, ai = clamp(Math.round(Number(side.ai) || 0), 0, 100);
+    return {rule, ai, kept:fin.length - bad, n:fin.length, total:Math.round(rule * .3 + ai * .7)};
+  }
+  function winT(){
+    if (!verdict()) return -1;
+    const a = scoreOf(0).total, b = scoreOf(1).total;
+    return a === b ? (verdict().winner === 'B' ? 1 : 0) : (b > a ? 1 : 0);
+  }
 
   function clockNow(){
     if (room.status !== 'playing') return {phase:room.status === 'teams' ? 'teams' : 'lobby'};
@@ -811,12 +823,12 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     }
     /* done */
     const vd = verdict(), w = winT(), wait = judging || judgingElsewhere();
-    const score = (k, tt) => { const s = vd[k] || {}; return `<div class="score"><h2>${tName(tt)}</h2>
-      <div class="nums"><div><b>${+s.info || 0}</b><span>정보 전달</span></div><div><b>${+s.cards || 0}</b><span>카드 준수</span></div><div><b>${+s.appeal || 0}</b><span>매력</span></div></div>
+    const score = (k, tt) => { const s = vd[k] || {}, sc = scoreOf(tt); return `<div class="score"><h2>${mk(tt)}${tName(tt)}</h2>
+      <div class="nums"><div><b>${sc.rule}</b><span>규칙 준수 30% · ${sc.kept}/${sc.n}장</span></div><div><b>${sc.ai}</b><span>AI 평가 70%</span></div><div><b>${sc.total}</b><span>합계</span></div></div>
       <p>${esc(s.comment || '')}</p></div>`; };
     return `
       <div class="grow">
-        ${vd ? `<p class="eyebrow">AI 심사 결과</p><h1 class="huge">${tName(w)} 승</h1><p>${esc(vd.verdict || '')}</p>`
+        ${vd ? `<p class="eyebrow">심사 결과 · ${scoreOf(0).total} 대 ${scoreOf(1).total}</p><h1 class="huge">${tName(w)} 승</h1><p>${esc(vd.verdict || '')}</p>`
              : `<p class="eyebrow">${no(R)}라운드 끝</p><h1 class="title">두 포스터 완성</h1>`}
         <div class="duo" id="duo"></div>
         ${vd ? score('A', 0) + score('B', 1) : ''}
@@ -876,7 +888,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
           <ol class="list">
             <li><span>라운드마다 팀에서 한 명이 작가가 되어 30초 동안 포스터를 고칩니다.</span></li>
             <li><span>그동안 한 명은 상대 팀에게 보낼 디자인 원칙 카드를 고르고, 한 명은 지켜봅니다. 카드는 끝까지 쌓이고 전부 지켜야 합니다.</span></li>
-            <li><span>지켜보던 사람이 다음 작가가 됩니다. 끝나면 AI가 승자를 고릅니다.</span></li>
+            <li><span>지켜보던 사람이 다음 작가가 됩니다.</span></li>
+            <li><span>점수는 규칙 준수 30%, AI 평가 70%입니다. 원칙을 지킬지, 마음대로 만들지는 팀이 정합니다.</span></li>
           </ol>
         </div>
         <div class="foot" id="foot"></div>`;
@@ -1138,21 +1151,18 @@ ${lines(1)}
 포스터 데이터 읽는 법: x, y는 요소 중심의 위치(왼쪽 위가 0,0 / 오른쪽 아래가 100,100). 크기는 포스터 너비 대비 %(글자는 글자 크기, 도형은 지름 또는 한 변). 회전은 도 단위. 목록에서 뒤에 있는 요소가 앞 요소 위에 그려집니다. 포스터 비율은 가로 5, 세로 7입니다.
 ${withImages ? '첨부한 이미지 중 첫 번째가 A팀, 두 번째가 B팀 포스터입니다. 이미지와 데이터를 함께 보고 판단하세요.' : '이미지는 없으니 데이터로 포스터를 머릿속에 그려 판단하세요.'}
 
-심사 기준:
-1) 정보 전달: 처음 보는 사람이 3초 안에 무슨 전시를, 언제, 어디서 하는지 알 수 있는가.
-2) 카드 준수: 받은 카드를 하나씩 확인합니다. 서로 모순되는 카드를 받았다면 그 사정을 감안하되, 지키지 못한 카드는 그대로 적습니다.
-3) 매력: 벽에 붙어 있으면 눈이 가는가.
+심사할 것은 두 가지입니다.
+1) AI 평가(ai): 카드와는 무관하게, 포스터 자체가 얼마나 좋은지 0부터 100까지의 정수로 매깁니다. 처음 보는 사람이 무슨 전시를 언제 어디서 하는지 알 수 있는지, 벽에 붙어 있으면 눈이 가고 아름다운지를 함께 봅니다. 카드를 지켰는지는 이 점수에 넣지 않습니다.
+2) 규칙 준수(broken): 받은 카드를 하나씩 확인해, 지키지 못한 카드의 제목을 위 목록에 적힌 그대로 broken에 넣습니다. 서로 모순되는 카드를 받았더라도 지키지 못한 카드는 그대로 적습니다. 위치는 3% 안팎, 크기는 10% 안팎의 오차를 허용합니다.
 
-반드시 한 팀을 승자로 고르세요. 평은 한국어로 짧고 구체적으로 쓰고, 심사위원다운 유머가 조금 있어도 좋습니다.
+최종 점수는 규칙 준수 30%와 AI 평가 70%로 페이지가 계산하니, 승자는 정하지 않아도 됩니다. 평은 한국어로 짧고 구체적으로 쓰고, 심사위원다운 유머가 조금 있어도 좋습니다.
 
-다음 모양의 JSON만 답하세요. broken에는 그 팀이 어긴 카드의 제목을 위 목록에 적힌 그대로 넣습니다:
-{"winner":"A","verdict":"승부를 가른 이유 두세 문장","A":{"info":7,"cards":5,"appeal":8,"comment":"한 줄 평","broken":["어긴 카드 제목"]},"B":{"info":6,"cards":9,"appeal":4,"comment":"한 줄 평","broken":[]}}
-점수는 0부터 10까지의 정수입니다.`;
+다음 모양의 JSON만 답하세요:
+{"verdict":"두 포스터를 비교한 총평 두세 문장","A":{"ai":72,"comment":"한 줄 평","broken":["어긴 카드 제목"]},"B":{"ai":58,"comment":"한 줄 평","broken":[]}}`;
   }
   function cleanSide(v){
     v = v && typeof v === 'object' ? v : {};
-    const num = n => clamp(Math.round(Number(n) || 0), 0, 10);
-    return {info:num(v.info), cards:num(v.cards), appeal:num(v.appeal), comment:String(v.comment || '').slice(0, 300),
+    return {ai:clamp(Math.round(Number(v.ai) || 0), 0, 100), comment:String(v.comment || '').slice(0, 300),
       broken:Array.isArray(v.broken) ? v.broken.slice(0, 12).map(b => String(b).slice(0, 40)) : []};
   }
   const JUDGE_COPY = {
@@ -1196,7 +1206,8 @@ ${withImages ? '첨부한 이미지 중 첫 번째가 A팀, 두 번째가 B팀 �
       if (images) opts.images = images;
       const out = await sample.json(judgePrompt(!!images, cardsAt(room.rounds - 1)), opts);
       if (!out || typeof out !== 'object') throw {code:'invalid_json'};
-      const v = {winner:out.winner === 'B' ? 'B' : 'A', verdict:String(out.verdict || '').slice(0, 600), A:cleanSide(out.A), B:cleanSide(out.B)};
+      const v = {winner:'A', verdict:String(out.verdict || '').slice(0, 600), A:cleanSide(out.A), B:cleanSide(out.B)};
+      const keep = verdictDoc; verdictDoc = v; v.winner = scoreOf(1).total > scoreOf(0).total ? 'B' : 'A'; verdictDoc = keep;
       held = false;
       await vref.set(v);
     } catch (e) {
