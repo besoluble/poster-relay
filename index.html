@@ -16,6 +16,7 @@
 :root[data-theme="dark"]{--bg:#0E0E0D; --ink:#00FF00; color-scheme:dark}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
+body{touch-action:manipulation}
 body{background:var(--bk);color:var(--fg);font-family:var(--font);font-size:15px;line-height:1.6;word-break:keep-all;-webkit-font-smoothing:antialiased;transition:background-color var(--ease),color var(--ease)}
 button{font:inherit;color:inherit;cursor:pointer;border-radius:2px}
 p,h1,h2,ol,ul,dl,dd{margin:0}
@@ -768,6 +769,12 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     } catch (e) {}
   }
   const buzz = ms => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} };
+  let wake = null;
+  async function keepAwake(){
+    try { if (!wake && navigator.wakeLock && document.visibilityState === 'visible') { wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); } } catch (e) { wake = null; }
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
+  document.addEventListener('click', keepAwake);
   function fanfare(){ [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, i === 3 ? .5 : .14), i * 130)); }
   function confetti(){
     try {
