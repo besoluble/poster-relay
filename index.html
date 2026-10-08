@@ -140,6 +140,8 @@ input[type="text"]::placeholder{color:var(--fg);opacity:.5}
 .nums div{display:flex;flex-direction:column;line-height:1.25}
 .nums b{font-weight:500;font-size:30px;letter-spacing:-.02em}
 .nums span{font-size:12px}
+.ask{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--fg);border-bottom:1px solid var(--fg);padding-block:14px}
+.ask h2{font-size:22px;font-weight:500;letter-spacing:-.02em;line-height:1.25}
 .dots::after{content:""}
 .confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:200}
 button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-offset:3px}
@@ -267,7 +269,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
   let room = {status:'lobby', gen:0, rounds:6}, players = [], posters = [null, null], picks = {}, verdictDoc = null;
   let gameSubs = [], subGid = null, snapAt = [0, 0];
   let myName = lsGet('prl-name') || '', wantIn = false, rejoinGen = -1, netNote = '', busy = false;
-  let myPick = null;
+  let myPick = null, votes = {}, myVote = null;
   /* 작가일 때만 쓰는 작업본 */
   let W = null, turnStart = null, writerRound = -1, writerGid = null, wNext = null, wBusy = false, wTimer = null;
   let sel = null, drag = null, pinch = null, toolSel = 's', toolNone = 'bg';
@@ -478,13 +480,14 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
   }
   function subGame(gid){
     gameSubs.forEach(u => { try { u(); } catch (e) {} });
-    gameSubs = []; posters = [null, null]; picks = {}; verdictDoc = null; sawVerdict = false; myPick = null;
+    gameSubs = []; posters = [null, null]; picks = {}; verdictDoc = null; sawVerdict = false; myPick = null; votes = {}; myVote = null;
     W = null; writerRound = -1; subGid = gid; judgeNote = ''; confirmNew = false;
     if (lapseT) { clearTimeout(lapseT); lapseT = null; }
     if (!gid) return;
     [0, 1].forEach(t => gameSubs.push(db.doc(`games/${gid}/posters/${t}`).onSnapshot(s => { if (s.exists) onPoster(t, s.data()); }, () => {})));
     gameSubs.push(db.collection(`games/${gid}/picks`).onSnapshot(q => { onPicks(q); }, () => {}));
     gameSubs.push(db.doc(`games/${gid}/meta/verdict`).onSnapshot(s => { onVerdict(s.exists ? s.data() : null); }, () => {}));
+    gameSubs.push(db.collection(`games/${gid}/votes`).onSnapshot(q => { const m = {}; q.docs.forEach(d => { const v = d.data(); if (v) m[d.id] = v.v; }); votes = m; sync(); }, () => {}));
   }
   function onPoster(t, d){
     snapAt[t] = Date.now();
@@ -637,6 +640,15 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     confirmNew = false;
     try { await roomRef.set({status:'lobby', gen:gen() + 1, rounds:room.rounds || 6}); } catch (e) {}
   }
+  /* 심사 결과에 동의하는지 한 번 누른다. 바꿔 눌러도 된다. */
+  async function vote(v){
+    if (lastView !== 'done' || !verdict() || !subGid) return;
+    myVote = v;
+    beep(520, .06);
+    sync();
+    try { await db.doc(`games/${subGid}/votes/${me}`).set({v}); } catch (e) {}
+  }
+  const voteOf = id => id === me && myVote ? myVote : votes[id];
   async function pick(card){
     const c = clockNow(), t = myTeam();
     if (c.phase !== 'play' || t < 0 || roleOf(t, c.r, me) !== 'c' || c.rem < 400) return;
@@ -862,15 +874,32 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     }
     /* done */
     const vd = verdict(), w = winT(), wait = judging || judgingElsewhere();
+    let ask = '', panel = '';
+    if (vd) {
+      const sw = scoreOf(w), sl = scoreOf(1 - w), W = tName(w), L = tName(1 - w);
+      const line = sw.rule < sl.rule ? `${W}은 카드를 덜 지키고 이겼습니다. 지킨 카드는 ${sw.kept}장 대 ${sl.kept}장입니다.`
+        : sw.rule > sl.rule && sw.ai < sl.ai ? `${W}은 아름다움에서는 졌지만 규칙 점수로 이겼습니다.`
+        : sw.rule > sl.rule ? `${W}은 카드도 더 지켰고 아름다움도 앞섰습니다.`
+        : `두 팀이 지킨 카드 수는 같았고, 아름다움에서 갈렸습니다.`;
+      const mineV = voteOf(me), humans = tt => room.teams[tt].filter(id => !isBot(id));
+      const all = humans(0).concat(humans(1)), yes = all.filter(id => voteOf(id) === 'y').length, no = all.filter(id => voteOf(id) === 'n').length;
+      const by = tt => { const m = humans(tt); return m.length ? `${tName(tt)} ${m.filter(id => voteOf(id) === 'y').length}/${m.length}` : ''; };
+      ask = `<div class="ask"><p>${line}</p><h2>근데 여러분은 솔직히 동의하시나요?</h2><p class="eyebrow">점수 말고, 눈으로 봤을 때</p>
+        <div class="seg"><button type="button" data-act="vote" data-v="y" aria-pressed="${mineV === 'y'}">동의</button><button type="button" data-act="vote" data-v="n" aria-pressed="${mineV === 'n'}">아니, ${L}이 더 낫다</button></div>
+        <p class="eyebrow">${yes + no ? `동의 ${yes}명 · 반대 ${no}명 (동의한 사람: ${[by(0), by(1)].filter(Boolean).join(', ')})` : '아직 아무도 누르지 않았습니다.'}</p></div>`;
+      if (Array.isArray(vd.panel) && vd.panel.length) panel = `<p class="eyebrow">아름다움 심사 · 세 사람의 눈을 모티브로 한 AI 심사위원</p><ol class="list">${vd.panel.slice(0, 5).map(j => `<li><span><b>${esc(j.name)}의 눈 · A ${clamp(Math.round(+j.a || 0), 0, 100)} / B ${clamp(Math.round(+j.b || 0), 0, 100)}</b>${esc(j.say || '')}</span></li>`).join('')}</ol>`;
+    }
     const score = (k, tt) => { const s = vd[k] || {}, sc = scoreOf(tt); return `<div class="score"><h2>${mk(tt)}${tName(tt)}</h2>
       <div class="nums"><div><b>${sc.rule}</b><span>규칙 준수 30% · ${sc.kept}/${sc.n}장</span></div><div><b>${sc.ai}</b><span>아름다움 70% · AI 평가</span></div><div><b>${sc.total}</b><span>합계</span></div></div>
       <p>${esc(s.comment || '')}</p></div>`; };
+    const overall = vd && vd.verdict ? `<div class="score"><h2>총평</h2><p>${esc(vd.verdict)}</p></div>` : '';
     return `
       <div class="grow">
-        ${vd ? `<p class="eyebrow">심사 결과 · ${scoreOf(0).total} 대 ${scoreOf(1).total}</p><h1 class="huge">${tName(w)} 승</h1><p>${esc(vd.verdict || '')}</p>`
+        ${vd ? `<p class="eyebrow">심사 결과 · ${scoreOf(0).total} 대 ${scoreOf(1).total}</p><h1 class="huge">${tName(w)} 승</h1>`
              : `<p class="eyebrow">${no(R)}라운드 끝</p><h1 class="title">두 포스터 완성</h1>`}
         <div class="duo" id="duo"></div>
-        ${vd ? score('A', 0) + score('B', 1) : ''}
+        ${ask}${panel}
+        ${vd ? score('A', 0) + score('B', 1) + overall : ''}
         ${judgeNote ? `<p role="status">${esc(judgeNote)}</p>` : ''}
         <div class="quiet-row"><button type="button" class="quiet" data-act="lapse">과정 다시 보기</button>${vd && !wait && amOwner !== false ? `<button type="button" class="quiet" data-act="judge">다시 심사받기</button>` : ''}</div>
       </div>
@@ -928,7 +957,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
             <li><span>라운드마다 팀에서 한 명이 작가가 되어 30초 동안 포스터를 고칩니다.</span></li>
             <li><span>그동안 한 명은 상대 팀에게 보낼 디자인 원칙 카드를 고르고, 한 명은 지켜봅니다. 카드는 끝까지 쌓이고 전부 지켜야 합니다.</span></li>
             <li><span>지켜보던 사람이 다음 작가가 됩니다.</span></li>
-            <li><span>점수는 규칙 준수 30%, AI가 매기는 아름다움 70%입니다. 원칙을 지킬지, 마음대로 만들지는 팀이 정합니다.</span></li>
+            <li><span>점수는 규칙 준수 30%, 아름다움 70%입니다. 아름다움은 워홀, 안상수, 폴 랜드의 눈을 모티브로 한 AI 심사위원 셋이 카드를 모르는 채로 매깁니다.</span></li>
+            <li><span>원칙을 지킬지, 마음대로 만들지는 팀이 정합니다. 결과가 나오면 다 같이 동의하는지 누릅니다.</span></li>
           </ol>
         </div>
         <div class="foot" id="foot"></div>`;
@@ -1366,6 +1396,7 @@ ${withImages ? '첨부한 이미지 중 첫 번째가 A팀, 두 번째가 B팀 �
       case 'teams': beep(660, .1); makeTeams(); break;
       case 'go': beep(880, .1); startGame(); break;
       case 'pick': pick(+v); break;
+      case 'vote': vote(v); break;
       case 'new': confirmNew = true; sync(); break;
       case 'new-no': confirmNew = false; sync(); break;
       case 'new-yes': if (judgeCtl) judgeCtl.abort(); newGame(); break;
