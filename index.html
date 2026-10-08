@@ -506,6 +506,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     sync();
   }
   function onVerdict(d){
+    if (d && !d.winner && d.judgingAt && (myVote || votes[me])) { myVote = null; celebrated = null; if (subGid) db.doc(`games/${subGid}/votes/${me}`).delete().catch(() => {}); }
     verdictDoc = d;
     if (verdict() && !sawVerdict) { sawVerdict = true; if (clockNow().phase === 'done') beep(880, .2); }
     sync();
