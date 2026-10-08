@@ -863,7 +863,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     /* done */
     const vd = verdict(), w = winT(), wait = judging || judgingElsewhere();
     const score = (k, tt) => { const s = vd[k] || {}, sc = scoreOf(tt); return `<div class="score"><h2>${mk(tt)}${tName(tt)}</h2>
-      <div class="nums"><div><b>${sc.rule}</b><span>규칙 준수 30% · ${sc.kept}/${sc.n}장</span></div><div><b>${sc.ai}</b><span>AI 평가 70%</span></div><div><b>${sc.total}</b><span>합계</span></div></div>
+      <div class="nums"><div><b>${sc.rule}</b><span>규칙 준수 30% · ${sc.kept}/${sc.n}장</span></div><div><b>${sc.ai}</b><span>아름다움 70% · AI 평가</span></div><div><b>${sc.total}</b><span>합계</span></div></div>
       <p>${esc(s.comment || '')}</p></div>`; };
     return `
       <div class="grow">
@@ -928,7 +928,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
             <li><span>라운드마다 팀에서 한 명이 작가가 되어 30초 동안 포스터를 고칩니다.</span></li>
             <li><span>그동안 한 명은 상대 팀에게 보낼 디자인 원칙 카드를 고르고, 한 명은 지켜봅니다. 카드는 끝까지 쌓이고 전부 지켜야 합니다.</span></li>
             <li><span>지켜보던 사람이 다음 작가가 됩니다.</span></li>
-            <li><span>점수는 규칙 준수 30%, AI 평가 70%입니다. 원칙을 지킬지, 마음대로 만들지는 팀이 정합니다.</span></li>
+            <li><span>점수는 규칙 준수 30%, AI가 매기는 아름다움 70%입니다. 원칙을 지킬지, 마음대로 만들지는 팀이 정합니다.</span></li>
           </ol>
         </div>
         <div class="foot" id="foot"></div>`;
@@ -1192,10 +1192,10 @@ ${lines(1)}
 ${withImages ? '첨부한 이미지 중 첫 번째가 A팀, 두 번째가 B팀 포스터입니다. 이미지와 데이터를 함께 보고 판단하세요.' : '이미지는 없으니 데이터로 포스터를 머릿속에 그려 판단하세요.'}
 
 심사할 것은 두 가지입니다.
-1) AI 평가(ai): 카드와는 무관하게, 포스터 자체가 얼마나 좋은지 0부터 100까지의 정수로 매깁니다. 처음 보는 사람이 무슨 전시를 언제 어디서 하는지 알 수 있는지, 벽에 붙어 있으면 눈이 가고 아름다운지를 함께 봅니다. 카드를 지켰는지는 이 점수에 넣지 않습니다.
+1) 아름다움(ai): 카드와는 무관하게, 포스터가 시각적으로 얼마나 아름다운지 0부터 100까지의 정수로 매깁니다. 구성, 균형, 색, 글자의 조화처럼 눈으로 보이는 아름다움만 봅니다. 카드를 지켰는지, 정보가 빠짐없이 읽히는지는 이 점수에 따로 넣지 않습니다.
 2) 규칙 준수(broken): 받은 카드를 하나씩 확인해, 지키지 못한 카드의 제목을 위 목록에 적힌 그대로 broken에 넣습니다. 서로 모순되는 카드를 받았더라도 지키지 못한 카드는 그대로 적습니다. 위치는 3% 안팎, 크기는 10% 안팎의 오차를 허용합니다.
 
-최종 점수는 규칙 준수 30%와 AI 평가 70%로 페이지가 계산하니, 승자는 정하지 않아도 됩니다. 평은 한국어로 짧고 구체적으로 쓰고, 심사위원다운 유머가 조금 있어도 좋습니다.
+최종 점수는 규칙 준수 30%와 아름다움 70%로 페이지가 계산하니, 승자는 정하지 않아도 됩니다. 평은 한국어로 짧고 구체적으로 쓰고, 심사위원다운 유머가 조금 있어도 좋습니다.
 
 다음 모양의 JSON만 답하세요:
 {"verdict":"두 포스터를 비교한 총평 두세 문장","A":{"ai":72,"comment":"한 줄 평","broken":["어긴 카드 제목"]},"B":{"ai":58,"comment":"한 줄 평","broken":[]}}`;
