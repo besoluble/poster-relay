@@ -1,4 +1,4 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><style>html{color-scheme:light}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style><script>window.PRL_STATIC={"url": "wss://broker.emqx.io:8084/mqtt", "ns": "prl/v1/nat-sahxkz96modr"};</script><script src="mqtt.min.js"></script></head><body><title>15초 포스터 릴레이</title>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><style>html{color-scheme:light}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style><script>window.PRL_STATIC={"url": "wss://broker.emqx.io:8084/mqtt", "ns": "prl/v1/nat-sahxkz96modr", "build": 1791463444};</script><script src="mqtt.min.js"></script></head><body><title>15초 포스터 릴레이</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Batang:wght@400;700&family=Nanum+Pen+Script&display=swap">
 <style>
 @font-face{font-family:'Pretendard Variable';font-weight:45 920;font-style:normal;font-display:swap;src:url("PretendardVariable.woff2") format("woff2-variations"),url("PretendardVariable.woff2") format("woff2")}
@@ -441,11 +441,24 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
       sync();
     });
   }
+  /* 버전 맞춤: 새 버전이 올라오면 열려 있던 폰이 스스로 새로고침한다. 서로 다른 버전이 한 판에 섞이면 시간과 차례가 어긋난다. */
+  let stale = false;
+  function buildWatch(){
+    db.doc('meta/build').onSnapshot(sn => {
+      const d = sn.exists ? sn.data() : null;
+      if (!d || !ST.build || !(d.b > ST.build)) return;
+      stale = true;
+      let tried = null; try { tried = sessionStorage.getItem('prl-reload'); } catch (e) {}
+      if (W || String(d.b) === tried) { sync(); return; }
+      try { sessionStorage.setItem('prl-reload', String(d.b)); } catch (e) {}
+      location.reload();
+    }, () => {});
+  }
   window.__prl = () => ({tOff:Math.round(tOff), tSynced, tBest, tGood, ref:isRef()});
   async function init(){
     let user = null;
     if (ST) {
-      try { db = mqttDb(ST.url, ST.ns); timeWire(); setTimeout(() => { if (boot === 'loading') { slow = true; sync(); } }, 10000); await db.ready; } catch (e) { db = null; }
+      try { db = mqttDb(ST.url, ST.ns); timeWire(); buildWatch(); setTimeout(() => { if (boot === 'loading') { slow = true; sync(); } }, 10000); await db.ready; } catch (e) { db = null; }
     } else {
       try { if (window.claude && window.claude.use) [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]); } catch (e) {}
     }
@@ -532,6 +545,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
   }
   function putPoster(t, body){
     posters[t] = body;
+    if (stale) return;
     wNext = {gid:subGid, t, body};
     pump();
   }
@@ -1057,6 +1071,12 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
 
   /* ---------- 그리기 순환 ---------- */
   function sync(){
+    if (stale && !W) {
+      play.hidden = true; screen.hidden = false;
+      const h = `<p class="eyebrow">Not a Tree</p><h1 class="title">새 버전이 올라왔습니다</h1><hr class="rule"><p>이 화면은 옛 버전이라 다른 폰과 시간이 어긋납니다. 아래 버튼을 눌러 새로고침해 주세요. 자리는 그대로 유지됩니다.</p><button type="button" class="cta" onclick="location.reload()">새로고침</button>`;
+      if (lastHtml !== h) { screen.className = 'screen'; screen.innerHTML = h; lastHtml = h; lastView = 'stale'; }
+      return;
+    }
     const c = clockNow(), v = viewOf(c), t = myTeam();
     if (v === 'write') {
       if (!W || writerRound !== c.r) { if (!startWriting(c.r)) { return; } }
