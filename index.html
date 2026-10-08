@@ -140,8 +140,10 @@ input[type="text"]::placeholder{color:var(--fg);opacity:.5}
 .nums div{display:flex;flex-direction:column;line-height:1.25}
 .nums b{font-weight:500;font-size:30px;letter-spacing:-.02em}
 .nums span{font-size:12px}
-.ask{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--fg);border-bottom:1px solid var(--fg);padding-block:14px}
-.ask h2{font-size:22px;font-weight:500;letter-spacing:-.02em;line-height:1.25}
+.askbar{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--fg);padding-top:12px}
+.askbar .q{font-size:17px;font-weight:600;letter-spacing:-.01em;line-height:1.3}
+.askbar .q small{display:block;font-size:12px;font-weight:400}
+.done .foot .cta.ghost{height:46px;font-size:15px}
 .dots::after{content:""}
 .confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:200}
 button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-offset:3px}
@@ -881,7 +883,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
     }
     /* done */
     const vd = verdict(), w = winT(), wait = judging || judgingElsewhere();
-    let ask = '', panel = '';
+    let ask = '', panel = '', opener = '';
     const oc = outcome();
     if (vd) {
       const sw = scoreOf(w), sl = scoreOf(1 - w), W = tName(w), L = tName(1 - w);
@@ -892,10 +894,10 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
       const mineV = voteOf(me), humans = tt => room.teams[tt].filter(id => !isBot(id));
       const all = humans(0).concat(humans(1)), yes = all.filter(id => voteOf(id) === 'y').length, no = all.filter(id => voteOf(id) === 'n').length;
       const by = tt => { const m = humans(tt); return m.length ? `${tName(tt)} ${m.filter(id => voteOf(id) === 'y').length}/${m.length}` : ''; };
-      ask = `<div class="ask"><p>${line}</p><h2>근데 여러분은 솔직히 동의하시나요?</h2><p class="eyebrow">점수 말고, 눈으로 봤을 때</p>
+      opener = `<p>${line}</p>`;
+      ask = `<div class="askbar"><p class="q">근데 여러분은 솔직히 동의하시나요? <small>점수 말고, 눈으로 봤을 때</small></p>
         <div class="seg"><button type="button" data-act="vote" data-v="y" aria-pressed="${mineV === 'y'}">동의</button><button type="button" data-act="vote" data-v="n" aria-pressed="${mineV === 'n'}">아니, ${L}이 더 낫다</button></div>
-        <p class="eyebrow">${yes + no ? `동의 ${yes}명 · 반대 ${no}명 (동의한 사람: ${[by(0), by(1)].filter(Boolean).join(', ')})` : '아직 아무도 누르지 않았습니다.'}</p>
-        ${oc.done ? '' : `<p class="eyebrow">여기 모인 사람들이 동의해야 승리가 확정됩니다. 과반이 반대하면 뒤집힙니다. 아직 ${oc.left}명이 누르지 않았습니다.</p>`}</div>`;
+        <p class="eyebrow">${yes + no ? `동의 ${yes}명 · 반대 ${no}명 (동의: ${[by(0), by(1)].filter(Boolean).join(', ')})` : '아직 아무도 누르지 않았습니다.'}${oc.done ? '' : ` · ${oc.left}명 남음 · 과반이 반대하면 뒤집힙니다`}</p></div>`;
       if (Array.isArray(vd.panel) && vd.panel.length) panel = `<p class="eyebrow">아름다움 심사 · 세 사람의 눈을 모티브로 한 AI 심사위원</p><ol class="list">${vd.panel.slice(0, 5).map(j => `<li><span><b>${esc(j.name)}의 눈 · A ${clamp(Math.round(+j.a || 0), 0, 100)} / B ${clamp(Math.round(+j.b || 0), 0, 100)}</b>${esc(j.say || '')}</span></li>`).join('')}</ol>`;
     }
     const score = (k, tt) => { const s = vd[k] || {}, sc = scoreOf(tt); return `<div class="score"><h2>${mk(tt)}${tName(tt)}</h2>
@@ -908,13 +910,15 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-off
           ? `<p class="eyebrow">${oc.flipped ? `뒤집힘 · AI 판정은 ${tName(oc.ai)}이었지만 반대 ${oc.no} 대 동의 ${oc.yes}` : oc.tie ? `동의 ${oc.yes} 대 반대 ${oc.no} · 동수라 AI 판정대로` : `확정 · 동의 ${oc.yes} 대 반대 ${oc.no}`}</p><h1 class="huge">${tName(oc.final)} 승</h1>`
           : `<p class="eyebrow">AI 판정 · ${scoreOf(0).total} 대 ${scoreOf(1).total} · 여러분의 동의를 기다리는 중</p><h1 class="huge">${tName(w)} 승?</h1>`}`
              : `<p class="eyebrow">${no(R)}라운드 끝</p><h1 class="title">두 포스터 완성</h1>`}
+        ${opener}
         <div class="duo" id="duo"></div>
-        ${ask}${panel}
+        ${panel}
         ${vd ? score('A', 0) + score('B', 1) + overall : ''}
         ${judgeNote ? `<p role="status">${esc(judgeNote)}</p>` : ''}
         <div class="quiet-row"><button type="button" class="quiet" data-act="lapse">과정 다시 보기</button>${vd && !wait && amOwner !== false ? `<button type="button" class="quiet" data-act="judge">다시 심사받기</button>` : ''}</div>
       </div>
       <div class="foot">
+      ${ask}
       ${wait ? `<button type="button" class="cta" ${judging ? 'data-act="judge-stop"' : 'disabled'}><span class="dots">${judging ? '심사 중 · 누르면 멈춤' : ST ? '심사 중 · 1분쯤 걸립니다' : '다른 폰에서 심사 중'}</span></button>`
              : vd ? '' : amOwner === false ? `<button type="button" class="cta" disabled>링크 주인이 심사를 시작하면 결과가 여기에 뜹니다</button>`
              : `<button type="button" class="cta" data-act="judge">AI 심사 시작</button>`}
